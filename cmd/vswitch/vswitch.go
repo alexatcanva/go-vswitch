@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/songgao/packets/ethernet"
+	"golang.org/x/exp/maps"
 )
 
 var macTable map[string]string = make(map[string]string)
@@ -55,6 +56,30 @@ func main() {
 			if err != nil {
 				log.Printf("failed to forward vswitch traffic to dst: %s, err: %s\n", dst, err.Error())
 				continue
+			}
+		}
+
+		if frame.Destination().String() == "ff:ff:ff:ff:ff:ff" {
+			for _, dst := range maps.Keys(macTable) {
+				if dst == frame.Source().String() {
+					continue
+				}
+				// send it along
+				u, err := net.ResolveUDPAddr("udp", macTable[dst])
+				if err != nil {
+					log.Printf("failed to resolve vswitch member: %s\n", err.Error())
+					continue
+				}
+				forwardConn, err := net.DialUDP("udp", nil, u)
+				if err != nil {
+					log.Printf("failed to dial vswitch member: %s, err: %s\n", dst, err.Error())
+					continue
+				}
+				_, err = forwardConn.Write(frame)
+				if err != nil {
+					log.Printf("failed to forward vswitch traffic to dst: %s, err: %s\n", dst, err.Error())
+					continue
+				}
 			}
 		}
 	}

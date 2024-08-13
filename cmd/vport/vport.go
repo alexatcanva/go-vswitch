@@ -26,7 +26,7 @@ func main() {
 	}
 
 	ifaceTap, err := water.New(water.Config{
-		DeviceType: 1,
+		DeviceType: water.TAP,
 		PlatformSpecificParams: water.PlatformSpecificParams{
 			Name: tapName,
 		},
