@@ -46,7 +46,7 @@ func main() {
 	}
 
 	for {
-		go io.Copy(conn, ifaceTap)
-		io.Copy(ifaceTap, conn)
+		go io.Copy(ifaceTap, conn)
+		io.Copy(conn, ifaceTap)
 	}
 }

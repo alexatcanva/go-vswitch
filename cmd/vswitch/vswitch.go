@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var macTable map[string]string = make(map[string]string)
+var macTable map[string]*net.UDPAddr = make(map[string]*net.UDPAddr)
 
 func main() {
 	var (
@@ -27,55 +27,39 @@ func main() {
 	for {
 		var frame ethernet.Frame
 		frame.Resize(1518)
-		_, remote, err := l.ReadFrom(frame)
+		n, remote, err := l.ReadFrom(frame)
 		if err != nil {
 			log.Printf("failed to read bytes into ethernet frame: %s\n", err.Error())
 			continue
 		}
+		frame.Resize(n)
 
 		log.Printf("src %s -> dst %s\n", frame.Source().String(), frame.Destination().String())
 
 		src := frame.Source().String()
-		if v := macTable[src]; v != remote.String() {
-			log.Printf("adding %s to table. %s -> %s\n", src, src, remote.String())
-			macTable[src] = remote.String()
+		if v := macTable[src]; v.String() != remote.(*net.UDPAddr).String() {
+			log.Printf("adding %s to table. %s -> %s\n", src, src, remote)
+			macTable[src] = remote.(*net.UDPAddr)
 		}
 
-		if dst, ok := macTable[src]; ok {
-			u, err := net.ResolveUDPAddr("udp", dst)
-			if err != nil {
-				log.Printf("failed to resolve vswitch member: %s\n", err.Error())
-				continue
-			}
-			forwardConn, err := net.DialUDP("udp", nil, u)
-			if err != nil {
-				log.Printf("failed to dial vswitch member: %s, err: %s\n", dst, err.Error())
-				continue
-			}
-			_, err = forwardConn.Write(frame)
+		if dst, ok := macTable[frame.Destination().String()]; ok {
+			_, err = l.WriteTo(frame, dst)
+			log.Printf("forwarding vswitch traffic to dst: %s\n", dst)
 			if err != nil {
 				log.Printf("failed to forward vswitch traffic to dst: %s, err: %s\n", dst, err.Error())
 				continue
 			}
+			continue
 		}
 
 		if frame.Destination().String() == "ff:ff:ff:ff:ff:ff" {
 			for _, dst := range maps.Keys(macTable) {
 				if dst == frame.Source().String() {
+					log.Printf("ignoring broadcast back to host.\n")
 					continue
 				}
-				// send it along
-				u, err := net.ResolveUDPAddr("udp", macTable[dst])
-				if err != nil {
-					log.Printf("failed to resolve vswitch member: %s\n", err.Error())
-					continue
-				}
-				forwardConn, err := net.DialUDP("udp", nil, u)
-				if err != nil {
-					log.Printf("failed to dial vswitch member: %s, err: %s\n", dst, err.Error())
-					continue
-				}
-				_, err = forwardConn.Write(frame)
+				log.Println("broadcasting to", dst)
+				_, err = l.WriteTo(frame, macTable[dst])
 				if err != nil {
 					log.Printf("failed to forward vswitch traffic to dst: %s, err: %s\n", dst, err.Error())
 					continue
