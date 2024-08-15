@@ -7,7 +7,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/songgao/water"
+	"github.com/alexbathome/go-vswitch/pkg/vport"
 )
 
 func main() {
@@ -25,12 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ifaceTap, err := water.New(water.Config{
-		DeviceType: water.TAP,
-		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name: tapName,
-		},
-	})
+	ifaceTap, err := vport.New(tapName)
 	if err != nil {
 		log.Fatalf("unable to create TAP iface: %s", err.Error())
 	}

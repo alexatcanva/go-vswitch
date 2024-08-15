@@ -2,6 +2,7 @@ FROM golang:1.22 as build
 
 WORKDIR /app
 COPY cmd/vport/vport.go /app/
+COPY pkg/ /app/pkg/
 COPY go.mod /app/
 COPY go.sum /app/
 
